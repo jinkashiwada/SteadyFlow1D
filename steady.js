@@ -4,8 +4,8 @@ const lang = document.documentElement.lang && document.documentElement.lang.star
 const text = {
   ja: {
     particleNone: "なし",
-    particleNoTrail: "軌跡なし",
-    particleTrail: "軌跡あり",
+    particleNoTrail: "あり（黒）",
+    particleTrail: "あり（白）",
     submergedJump: "下流水位支配の接続",
     freeJump: "跳水接続",
     noJump: "跳水なし",
@@ -23,8 +23,8 @@ const text = {
   },
   en: {
     particleNone: "None",
-    particleNoTrail: "Particles",
-    particleTrail: "Trails",
+    particleNoTrail: "On (black)",
+    particleTrail: "On (white)",
     submergedJump: "Tailwater-controlled transition",
     freeJump: "Jump connection",
     noJump: "No jump",
@@ -168,8 +168,8 @@ const presets = {
     gates: []
   },
   "steep-uniform-high": {
-    flow: 1.45,
-    tail: 1.85,
+    flow: 0.15,
+    tail: 1.00,
     mann: 0.023,
     bed: () => setUniformBed(1.60, 0.018),
     gates: []
@@ -565,14 +565,11 @@ function updateParticles(dt) {
     model.spawnCarry -= 1;
     model.particles.push({ x: 0.4, s: 0.06 + Math.random() * 0.88, drift: (Math.random() - 0.5) * 0.018, trail: [] });
   }
-  const keepTrail = mode === 2;
   for (let p = model.particles.length - 1; p >= 0; p--) {
     const particle = model.particles[p];
     const i = clamp(Math.round(particle.x / dx - 0.5), 0, N - 1);
     const u = velocityAt(i, particle.s);
-    if (keepTrail) particle.trail.push({ x: particle.x, s: particle.s });
-    else particle.trail.length = 0;
-    if (particle.trail.length > 42) particle.trail.splice(0, particle.trail.length - 42);
+    particle.trail.length = 0;
     particle.s += particle.drift * dt;
     if (particle.s < 0.08 || particle.s > 0.92) particle.drift *= -1;
     particle.s = clamp(particle.s, 0.06, 0.94);
@@ -785,28 +782,21 @@ function particleToPoint(p) {
 }
 
 function drawParticles() {
-  if (Number(ui.particles.value) === 0) return;
+  const mode = Number(ui.particles.value);
+  if (mode === 0) return;
   ctx.save();
   ctx.lineCap = "round";
   for (const p of model.particles) {
-    if (Number(ui.particles.value) === 2) {
-      for (let i = 1; i < p.trail.length; i++) {
-        const a = i / p.trail.length;
-        const p0 = particleToPoint(p.trail[i - 1]);
-        const p1 = particleToPoint(p.trail[i]);
-        ctx.strokeStyle = `rgba(12, 71, 88, ${0.05 + 0.45 * a})`;
-        ctx.lineWidth = 1 + 1.5 * a;
-        ctx.beginPath();
-        ctx.moveTo(p0.px, p0.py);
-        ctx.lineTo(p1.px, p1.py);
-        ctx.stroke();
-      }
-    }
     const pt = particleToPoint(p);
-    ctx.fillStyle = "#102f3f";
+    ctx.fillStyle = mode === 2 ? "rgba(255, 255, 255, 0.92)" : "#102f3f";
     ctx.beginPath();
     ctx.arc(pt.px, pt.py, 2.5, 0, Math.PI * 2);
     ctx.fill();
+    if (mode === 2) {
+      ctx.strokeStyle = "rgba(15, 47, 63, 0.55)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+    }
   }
   ctx.restore();
 }
