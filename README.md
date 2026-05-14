@@ -1,5 +1,9 @@
 # Steady Water Surface Lab
 
+[Open the interactive demo on GitHub Pages](https://jinkashiwada.github.io/SteadyFlow1D/)
+
+The GitHub Pages version runs directly in the browser. Open the link above to interactively change discharge, tailwater level, bed shape, sluice gates, presets, and visualization modes.
+
 Steady Water Surface Lab is a browser-based educational tool for visualizing steady open-channel water-surface profiles. It is intended to help students build an intuitive understanding of backwater curves, drawdown curves, critical controls, sluice-gate flow, and hydraulic jumps.
 
 - Japanese UI: `steady.html` or `steady-ja.html`
