@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Steady Water Surface Lab</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app">
+      <section class="stage">
+        <div class="canvas-wrap">
+          <canvas id="steadyCanvas" aria-label="定常開水路水面形"></canvas>
+          <button id="togglePanel" class="panel-toggle" type="button">設定を隠す</button>
+          <button id="toggleHud" class="hud-toggle" type="button">情報を隠す</button>
+          <div class="hud">
+            <span id="profileClass">-</span>
+            <span id="controlState">-</span>
+            <span id="steadyReadout">-</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel" aria-label="設定">
+        <div class="brand">
+          <h1>Steady Water Surface Lab</h1>
+          <p>標準逐次法・支配断面追跡モデル</p>
+          <div class="lang-links"><a href="steady.html">日本語</a><a href="steady-en.html">English</a></div>
+        </div>
+
+        <div class="control">
+          <label for="flow">流量 <output id="flowOut"></output></label>
+          <input id="flow" type="range" min="0.15" max="4.2" step="0.01" value="1.85">
+        </div>
+
+        <div class="control">
+          <label for="tail">下流端水位 <output id="tailOut"></output></label>
+          <input id="tail" type="range" min="0.45" max="2.8" step="0.01" value="1.35">
+        </div>
+
+        <div class="control">
+          <label for="mann">粗度係数 <output id="mannOut"></output></label>
+          <input id="mann" type="range" min="0.012" max="0.055" step="0.001" value="0.027">
+        </div>
+
+        <div class="control">
+          <label for="particles">粒子 <output id="particlesOut"></output></label>
+          <input id="particles" type="range" min="0" max="2" step="1" value="1">
+        </div>
+
+        <div class="control">
+          <label for="viewMode">表示</label>
+          <select id="viewMode">
+            <option value="speed" selected>流速分布</option>
+            <option value="froude">フルード数</option>
+            <option value="plain">水面形のみ</option>
+          </select>
+        </div>
+
+        <div class="buttons">
+          <button id="addSteadyGate" type="button">スルースゲートを追加</button>
+          <button id="deleteSteadyGate" class="secondary danger" type="button">スルースゲートを削除</button>
+          <button id="resetSteadyBed" type="button">河床を初期化</button>
+        </div>
+
+        <div class="preset-group">
+          <h2>プリセット</h2>
+          <div class="preset-grid">
+            <button type="button" data-preset="mild-gate-low">プリセット1</button>
+            <button type="button" data-preset="mild-gate-high">プリセット2</button>
+            <button type="button" data-preset="mild-weir-free">プリセット3</button>
+            <button type="button" data-preset="mild-weir-submerged">プリセット4</button>
+            <button type="button" data-preset="steep-uniform-low">プリセット5</button>
+            <button type="button" data-preset="steep-uniform-high">プリセット6</button>
+          </div>
+        </div>
+
+        <div class="notes">
+          <p>河床は上下ドラッグで編集できます。ゲート下端をドラッグすると位置と開度が変わり，上流水位はトリチェリー式で支配条件として評価されます。</p>
+        </div>
+      </aside>
+    </main>
+
+    <script src="steady.js"></script>
+  </body>
+</html>
