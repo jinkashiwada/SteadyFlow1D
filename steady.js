@@ -577,7 +577,7 @@ function updateParticles(dt) {
     if (particle.s < 0.08 || particle.s > 0.92) particle.drift *= -1;
     particle.s = clamp(particle.s, 0.06, 0.94);
     const previousX = particle.x;
-    particle.x += Math.max(0.02, u) * dt * 3.2;
+    particle.x += Math.max(0.02, u) * dt * 6.4;
     enforceGatePassage(particle, previousX);
     if (particle.x > L + 2) model.particles.splice(p, 1);
   }
