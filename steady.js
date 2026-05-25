@@ -13,6 +13,7 @@ const text = {
     steep: "急勾配",
     weirCrest: "堰頂",
     downstreamEnd: "下流端",
+    upstreamControl: "上流支配",
     gateSuffix: count => ` + ゲート${count}基`,
     tailwaterLabel: "下流端水位",
     depthRatio: "h下/h2",
@@ -32,6 +33,7 @@ const text = {
     steep: "Steep slope",
     weirCrest: "Crest control",
     downstreamEnd: "Tailwater control",
+    upstreamControl: "Upstream control",
     gateSuffix: count => ` + ${count} gate${count === 1 ? "" : "s"}`,
     tailwaterLabel: "Tailwater",
     depthRatio: "h_tail/h2",
@@ -455,11 +457,26 @@ function applySupercriticalPatch(controlIndex, controlEta, q, n, upstreamSource,
   return jump;
 }
 
+function applySteepUpstreamProfile(q, n, yn) {
+  const upstreamEta = model.z[0] + clamp(yn, minDepth, Math.max(minDepth, yc(q) * 0.995));
+  const superEta = stepSupercriticalDownstream(upstreamEta, 0, N - 1, q, n);
+  const transition = classifyHydraulicJump(superEta, 0, q);
+  const superEnd = transition.type === "none" ? N - 1 : Math.max(0, transition.i - 1);
+  for (let i = 0; i <= superEnd; i++) {
+    model.targetEta[i] = superEta[i];
+    model.source[i] = "upstream-super";
+  }
+  if (transition.type === "submerged") model.source[transition.i] = "submerged-jump";
+  model.jumps.push({ ...transition, source: "upstream-super" });
+}
+
 function solveProfile(immediate = false) {
   const q = Math.max(0.01, Number(ui.flow.value));
   const n = Number(ui.mann.value);
   const tail = Number(ui.tail.value);
   const slope = Math.max(0.0004, (model.z[0] - model.z[N - 1]) / L);
+  const yn = normalDepth(q, slope, n);
+  const critical = yc(q);
   const base = stepSubcriticalUpstream(tail, N - 1, 0, q, n, text.tailwaterLabel);
 
   for (let i = 0; i < N; i++) {
@@ -467,6 +484,10 @@ function solveProfile(immediate = false) {
     model.source[i] = "tailwater";
   }
   model.jumps.length = 0;
+
+  if (yn < critical) {
+    applySteepUpstreamProfile(q, n, yn);
+  }
 
   for (const ci of findBedControls(q)) {
     applySupercriticalPatch(ci, model.z[ci] + yc(q), q, n, "weir-upstream", "weir-jet");
@@ -492,11 +513,11 @@ function solveProfile(immediate = false) {
     if (immediate) model.eta[i] = model.targetEta[i];
   }
 
-  const yn = normalDepth(q, slope, n);
-  const mild = yn > yc(q);
-  ui.profileClass.textContent = `${mild ? text.mild : text.steep}  yc=${yc(q).toFixed(2)}m  yn=${yn.toFixed(2)}m`;
+  const mild = yn > critical;
+  ui.profileClass.textContent = `${mild ? text.mild : text.steep}  yc=${critical.toFixed(2)}m  yn=${yn.toFixed(2)}m`;
   const weirs = model.source.some(s => s === "weir-upstream" || s === "weir-jet");
-  const controls = `${weirs ? text.weirCrest : text.downstreamEnd}${sortedGates.length ? text.gateSuffix(sortedGates.length) : ""}`;
+  const upstreamControlled = model.source.some(s => s === "upstream-super");
+  const controls = `${weirs ? text.weirCrest : upstreamControlled ? text.upstreamControl : text.downstreamEnd}${sortedGates.length ? text.gateSuffix(sortedGates.length) : ""}`;
   const jumps = model.jumps.map(j => `${jumpLabel(j.type)} ${Math.round(j.x)}m ${text.depthRatio}=${j.depthRatio.toFixed(2)}`).join(", ");
   ui.controlState.textContent = jumps ? `${controls} / ${jumps}` : controls;
 }
@@ -711,7 +732,7 @@ function drawLines() {
 }
 
 function profileDirectionAt(i) {
-  return model.source[i] === "gate-jet" || model.source[i] === "weir-jet" ? 1 : -1;
+  return model.source[i] === "gate-jet" || model.source[i] === "weir-jet" || model.source[i] === "upstream-super" ? 1 : -1;
 }
 
 function drawProfileDirectionMarkers() {
@@ -741,14 +762,15 @@ function drawProfileDirectionMarkers() {
 
 function drawWatermark() {
   ctx.save();
-  ctx.globalAlpha = 0.11;
+  ctx.globalAlpha = 0.07;
   ctx.fillStyle = "#102f3f";
-  ctx.textAlign = "center";
+  ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  ctx.font = "700 42px system-ui, sans-serif";
-  ctx.fillText("HydLab", view.w * 0.5, view.h * 0.42);
-  ctx.font = "650 21px system-ui, sans-serif";
-  ctx.fillText("Tokyo University of Science", view.w * 0.5, view.h * 0.49);
+  const x = view.w - view.right - 18;
+  ctx.font = "700 96px system-ui, sans-serif";
+  ctx.fillText("HydLab", x, view.top + 58);
+  ctx.font = "650 28px system-ui, sans-serif";
+  ctx.fillText("Tokyo University of Science", x, view.top + 105);
   ctx.restore();
 }
 
