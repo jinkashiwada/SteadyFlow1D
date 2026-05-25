@@ -133,15 +133,15 @@ function setSillBed(upstream, slope, sillHeight, sillX, sillWidth) {
 
 const presets = {
   "mild-gate-low": {
-    flow: 1.25,
-    tail: 1.40,
+    flow: 2.00,
+    tail: 1.80,
     mann: 0.029,
     bed: () => setUniformBed(1.10, 0.0032),
     gates: [{ x: 42, clearance: 0.42 }]
   },
   "mild-gate-high": {
-    flow: 1.25,
-    tail: 2.05,
+    flow: 2.00,
+    tail: 2.80,
     mann: 0.029,
     bed: () => setUniformBed(1.10, 0.0032),
     gates: [{ x: 42, clearance: 0.42 }]
@@ -689,6 +689,7 @@ function drawLines() {
     else ctx.lineTo(xToPx(x), yToPx(model.eta[i]));
   }
   ctx.stroke();
+  drawProfileDirectionMarkers();
 
   ctx.beginPath();
   ctx.moveTo(xToPx(0), yToPx(view.minY));
@@ -706,6 +707,48 @@ function drawLines() {
     else ctx.lineTo(xToPx(x), yToPx(model.z[i]));
   }
   ctx.stroke();
+  ctx.restore();
+}
+
+function profileDirectionAt(i) {
+  return model.source[i] === "gate-jet" || model.source[i] === "weir-jet" ? 1 : -1;
+}
+
+function drawProfileDirectionMarkers() {
+  ctx.save();
+  ctx.fillStyle = "rgba(15, 23, 32, 0.72)";
+  for (let i = 4; i < N - 2; i += 6) {
+    const dir = profileDirectionAt(i);
+    const j = clamp(i + dir, 0, N - 1);
+    const x0 = xToPx(idX(i));
+    const y0 = yToPx(model.eta[i]);
+    const x1 = xToPx(idX(j));
+    const y1 = yToPx(model.eta[j]);
+    const angle = Math.atan2(y1 - y0, x1 - x0);
+    ctx.save();
+    ctx.translate(x0, y0);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(7, 0);
+    ctx.lineTo(-4, -4);
+    ctx.lineTo(-4, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawWatermark() {
+  ctx.save();
+  ctx.globalAlpha = 0.11;
+  ctx.fillStyle = "#102f3f";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "700 42px system-ui, sans-serif";
+  ctx.fillText("HydLab", view.w * 0.5, view.h * 0.42);
+  ctx.font = "650 21px system-ui, sans-serif";
+  ctx.fillText("Tokyo University of Science", view.w * 0.5, view.h * 0.49);
   ctx.restore();
 }
 
@@ -821,6 +864,7 @@ function render() {
   drawAxes();
   drawWaterFill();
   drawContours();
+  drawWatermark();
   drawLines();
   drawParticles();
   drawGatesAndJumps();
@@ -911,7 +955,7 @@ function deleteGate() {
   solveProfile(false);
 }
 
-function applyPreset(key) {
+function applyPreset(key, animate = true) {
   const preset = presets[key];
   if (!preset) return;
   const targetZ = capturePresetBed(preset);
@@ -926,8 +970,14 @@ function applyPreset(key) {
   model.spawnCarry = 0;
   updateOutputs();
   updatePresetButtons();
-  animateBedTo(targetZ);
-  solveProfile(false);
+  if (animate) {
+    animateBedTo(targetZ);
+    solveProfile(false);
+  } else {
+    model.bedAnimation = null;
+    model.z.set(targetZ);
+    solveProfile(true);
+  }
 }
 
 function toggleHud() {
@@ -984,5 +1034,5 @@ window.addEventListener("resize", resize);
 
 resize();
 updateOutputs();
-resetBed();
+applyPreset("mild-weir-free", false);
 requestAnimationFrame(render);
