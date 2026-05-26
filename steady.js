@@ -20,7 +20,9 @@ const text = {
     showInfo: "情報を表示",
     hideInfo: "情報を隠す",
     showSettings: "設定",
-    hideSettings: "設定を隠す"
+    hideSettings: "設定を隠す",
+    axisAuto: "縦軸　変動 ●　固定",
+    axisFixed: "縦軸　変動　固定 ●"
   },
   en: {
     particleNone: "None",
@@ -40,7 +42,9 @@ const text = {
     showInfo: "Show info",
     hideInfo: "Hide info",
     showSettings: "Settings",
-    hideSettings: "Hide settings"
+    hideSettings: "Hide settings",
+    axisAuto: "Axis  Auto ●  Fixed",
+    axisFixed: "Axis  Auto  Fixed ●"
   }
 }[lang];
 
@@ -53,9 +57,9 @@ const ui = {
   viewMode: document.getElementById("viewMode"),
   addGate: document.getElementById("addSteadyGate"),
   deleteGate: document.getElementById("deleteSteadyGate"),
-  resetBed: document.getElementById("resetSteadyBed"),
   toggleHud: document.getElementById("toggleHud"),
   togglePanel: document.getElementById("togglePanel"),
+  toggleAxis: document.getElementById("toggleAxis"),
   canvasWrap: document.querySelector(".canvas-wrap"),
   presetButtons: Array.from(document.querySelectorAll("[data-preset]")),
   flowOut: document.getElementById("flowOut"),
@@ -89,6 +93,7 @@ const model = {
   particles: [],
   spawnCarry: 0,
   bedAnimation: null,
+  axisLocked: true,
   drag: null
 };
 
@@ -99,8 +104,9 @@ let view = {
   right: 22,
   top: 28,
   bottom: 56,
-  minY: -0.4,
-  maxY: 3.2
+  minY: 0,
+  maxY: 5,
+  yTick: 1.0
 };
 
 function clamp(v, a, b) {
@@ -164,16 +170,16 @@ const presets = {
   },
   "steep-uniform-low": {
     flow: 1.45,
-    tail: 0.58,
+    tail: 1.08,
     mann: 0.023,
-    bed: () => setUniformBed(1.60, 0.018),
+    bed: () => setUniformBed(2.10, 0.018),
     gates: []
   },
   "steep-uniform-high": {
     flow: 0.15,
-    tail: 1.00,
+    tail: 1.50,
     mann: 0.023,
-    bed: () => setUniformBed(1.60, 0.018),
+    bed: () => setUniformBed(2.10, 0.018),
     gates: []
   }
 };
@@ -619,7 +625,7 @@ function bwr(t) {
   return `rgb(${c},${c},255)`;
 }
 
-function updateViewRange() {
+function requiredViewRange() {
   let lo = Infinity;
   let hi = -Infinity;
   for (let i = 0; i < N; i++) {
@@ -627,8 +633,29 @@ function updateViewRange() {
     hi = Math.max(hi, model.eta[i] + 0.5);
   }
   for (const gate of model.gates) hi = Math.max(hi, bedAt(gate.x) + gate.clearance + 1.1);
-  view.minY += (lo - view.minY) * 0.08;
-  view.maxY += (hi - view.maxY) * 0.08;
+  return { lo, hi };
+}
+
+function snappedAxisRange(lo, hi) {
+  const rawSpan = Math.max(1.0, hi - lo);
+  const pitch = rawSpan <= 3.0 ? 0.5 : 1.0;
+  let minY = Math.floor(lo / pitch) * pitch;
+  let maxY = Math.ceil(hi / pitch) * pitch;
+  if (maxY - minY < pitch * 4) {
+    const center = 0.5 * (minY + maxY);
+    minY = Math.floor((center - pitch * 2) / pitch) * pitch;
+    maxY = Math.ceil((center + pitch * 2) / pitch) * pitch;
+  }
+  return { minY, maxY, pitch };
+}
+
+function updateViewRange() {
+  if (model.axisLocked) return;
+  const bounds = requiredViewRange();
+  const snapped = snappedAxisRange(bounds.lo, bounds.hi);
+  view.minY = snapped.minY;
+  view.maxY = snapped.maxY;
+  view.yTick = snapped.pitch;
 }
 
 function drawAxes() {
@@ -638,8 +665,7 @@ function drawAxes() {
   ctx.font = "11px system-ui, sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";
-  for (let i = 0; i <= 6; i++) {
-    const y = view.minY + (view.maxY - view.minY) * i / 6;
+  for (let y = view.minY; y <= view.maxY + view.yTick * 0.25; y += view.yTick) {
     ctx.beginPath();
     ctx.moveTo(view.left, yToPx(y));
     ctx.lineTo(view.w - view.right, yToPx(y));
@@ -1011,14 +1037,34 @@ function updatePanelToggleText() {
   ui.togglePanel.textContent = ui.app.classList.contains("panel-hidden") ? text.showSettings : text.hideSettings;
 }
 
+function updateAxisToggleText() {
+  ui.toggleAxis.textContent = model.axisLocked ? text.axisFixed : text.axisAuto;
+  ui.toggleAxis.classList.toggle("active", model.axisLocked);
+}
+
 function togglePanel() {
   ui.app.classList.toggle("panel-hidden");
   updatePanelToggleText();
   setTimeout(resize, 0);
 }
 
+function toggleAxisLock() {
+  if (!model.axisLocked) {
+    const snapped = snappedAxisRange(view.minY, view.maxY);
+    view.minY = snapped.minY;
+    view.maxY = snapped.maxY;
+    view.yTick = snapped.pitch;
+    model.axisLocked = true;
+  } else {
+    model.axisLocked = false;
+    updateViewRange();
+  }
+  updateAxisToggleText();
+}
+
 if (window.matchMedia("(max-width: 920px)").matches) ui.app.classList.add("panel-hidden");
 updatePanelToggleText();
+updateAxisToggleText();
 
 for (const el of [ui.flow, ui.tail, ui.mann, ui.particles]) {
   el.addEventListener("input", () => {
@@ -1035,16 +1081,10 @@ ui.addGate.addEventListener("click", addGate);
 ui.deleteGate.addEventListener("click", deleteGate);
 ui.toggleHud.addEventListener("click", toggleHud);
 ui.togglePanel.addEventListener("click", togglePanel);
+ui.toggleAxis.addEventListener("click", toggleAxisLock);
 for (const button of ui.presetButtons) {
   button.addEventListener("click", () => applyPreset(button.dataset.preset));
 }
-ui.resetBed.addEventListener("click", () => {
-  model.bedAnimation = null;
-  model.activePreset = "";
-  model.gates.length = 0;
-  model.selectedGate = -1;
-  resetBed();
-});
 
 canvas.addEventListener("pointerdown", beginDrag);
 canvas.addEventListener("pointermove", moveDrag);

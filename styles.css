@@ -284,6 +284,12 @@ button.secondary {
   color: #263445;
 }
 
+button.secondary.active {
+  border-color: #147b90;
+  background: #e7f3f6;
+  color: #0d6273;
+}
+
 button.danger {
   border-color: #c79097;
   color: var(--danger);
